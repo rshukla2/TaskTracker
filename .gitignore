@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+
+# Web build and test output
+dist/
+coverage/
+.nyc_output/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+.cache/
+.vite/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Android local/build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.idea/
+*.apk
+*.aab
+*.aar
+
+# Never commit Android signing credentials
+*.jks
+*.keystore
+keystore.properties
+
+# Capacitor-generated Android files
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/
+android/app/src/main/res/xml/config.xml
+
+# iOS local/build output
+ios/App/build/
+ios/App/Pods/
+ios/App/output/
+ios/DerivedData/
+ios/**/xcuserdata/
+*.xcarchive
+*.ipa
+
+# Capacitor-generated iOS files
+ios/capacitor-cordova-ios-plugins/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+
+# Signing and provisioning files
+*.mobileprovision
+*.p12
+*.cer

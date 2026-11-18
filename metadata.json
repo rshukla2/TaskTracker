@@ -1,0 +1,6 @@
+{
+  "name": "Task Tracker",
+  "description": "Personal planner organized around Work Cycles, Sprints, and Tasks with local IndexedDB persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
