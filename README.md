@@ -64,13 +64,11 @@ Because IndexedDB storage is scoped to each origin (`http://localhost:3000` vs `
 
 This project is already wrapped with **Capacitor 8** (`capacitor.config.ts`, `ios/`, and `android/`) and automatically uses native on-device storage (`Directory.Data` via `@capacitor/filesystem`) plus the native Share Sheet (`@capacitor/share`) for JSON backups when running as an iOS or Android app.
 
-### 1. Before Publishing: Set Your Bundle ID & Icons
+### 1. Before Publishing: Verify Your Bundle ID & Icons
 
-1. Update `appId` in `capacitor.config.ts` (currently `com.tasktracker.app`) to your own reverse-domain identifier (e.g., `com.yourname.tasktracker`).
+1. The permanent app identifier is `com.tasktracker.app`. Confirm that it is available in App Store Connect and Google Play Console before creating the store records.
 2. Run `npm run cap:sync` after changing `capacitor.config.ts` or any web code in `src/`.
-3. Replace the default app icon and splash screen in:
-   - iOS: `ios/App/App/Assets.xcassets/`
-   - Android: `android/app/src/main/res/mipmap-*`
+3. The branded icon is displayed from `src/assets/task-tracker-icon.png`; full-size platform assets live in the iOS asset catalog and Android `mipmap-*` directories.
 
 ### 2. Local iOS Testing & App Store Submission (Mac + Xcode)
 
