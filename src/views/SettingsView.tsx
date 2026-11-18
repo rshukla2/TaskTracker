@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Download, Upload } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Upload } from 'lucide-react';
 import { ModalSheet } from '../components/ModalSheet';
 import { StatusEditor } from '../components/StatusEditor';
 import { todayLocal } from '../core/dates';
@@ -274,6 +274,18 @@ export function SettingsView({ onBack }: SettingsViewProps) {
               For privacy questions, use the developer contact information shown on Task
               Tracker&apos;s App Store or Google Play listing.
             </p>
+
+            {Capacitor.isNativePlatform() ? null : (
+              <a
+                href={`${import.meta.env.BASE_URL}privacy/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              >
+                <ExternalLink className="h-4 w-4" />
+                View full privacy policy
+              </a>
+            )}
           </div>
         </section>
       </main>
