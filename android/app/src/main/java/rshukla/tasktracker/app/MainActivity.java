@@ -1,4 +1,4 @@
-package com.tasktracker.app;
+package rshukla.tasktracker.app;
 
 import com.getcapacitor.BridgeActivity;
 

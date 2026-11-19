@@ -66,7 +66,7 @@ This project is already wrapped with **Capacitor 8** (`capacitor.config.ts`, `io
 
 ### 1. Before Publishing: Verify Your Bundle ID & Icons
 
-1. The permanent app identifier is `com.tasktracker.app`. Confirm that it is available in App Store Connect and Google Play Console before creating the store records.
+1. The permanent app identifier is `rshukla.tasktracker.app`. Confirm that it is available in App Store Connect and Google Play Console before creating the store records.
 2. Run `npm run cap:sync` after changing `capacitor.config.ts` or any web code in `src/`.
 3. The branded icon is displayed from `src/assets/task-tracker-icon.png`; full-size platform assets live in the iOS asset catalog and Android `mipmap-*` directories.
 
