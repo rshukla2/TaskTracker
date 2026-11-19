@@ -104,16 +104,21 @@ export function SettingsView({ onBack }: SettingsViewProps) {
     if (!pendingImport?.payload) return;
     setImporting(true);
     try {
-      await importBackup(pendingImport.payload);
+      const result = await importBackup(pendingImport.payload);
+      const { workCycles: c, sprints: s, tasks: t } = result.added;
       setImportSuccess(
-        `Restored ${pendingImport.summary?.workCyclesCount ?? 0} work cycles, ${
-          pendingImport.summary?.sprintsCount ?? 0
-        } sprints, and ${pendingImport.summary?.tasksCount ?? 0} tasks.`
+        c + s + t === 0
+          ? 'Nothing new to add — every work cycle, sprint, and task in this backup already exists. Your app settings were updated.'
+          : `Added ${c} new work cycle${c === 1 ? '' : 's'}, ${s} sprint${
+              s === 1 ? '' : 's'
+            }, and ${t} task${
+              t === 1 ? '' : 's'
+            }. Your existing data was kept.`
       );
       setPendingImport(null);
     } catch (err) {
       setImportErrors([
-        err instanceof Error ? err.message : 'Failed to import backup into IndexedDB.',
+        err instanceof Error ? err.message : 'Failed to import backup into local storage.',
       ]);
       setPendingImport(null);
     } finally {
@@ -293,8 +298,8 @@ export function SettingsView({ onBack }: SettingsViewProps) {
       <ModalSheet
         open={Boolean(pendingImport)}
         onClose={() => setPendingImport(null)}
-        title="Replace Existing Data?"
-        subtitle="Backup validated successfully"
+        title="Import Data?"
+        subtitle="Adds new data, keeps your current data"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
@@ -310,7 +315,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
               onClick={handleConfirmImport}
               className="min-h-[44px] rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              {importing ? 'Importing…' : 'Replace All Data'}
+              {importing ? 'Importing…' : 'Import Data'}
             </button>
           </div>
         }
@@ -318,8 +323,12 @@ export function SettingsView({ onBack }: SettingsViewProps) {
         {pendingImport?.summary ? (
           <div className="space-y-4 text-sm text-slate-700">
             <p>
-              Importing this backup will replace all current work cycles, sprints, tasks, and
-              settings in your browser.
+              This adds any new work cycles, sprints, and tasks from the backup. Your existing
+              work cycles, sprints, and tasks are kept unchanged — only your app settings are
+              updated to match the backup.
+            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              In this backup
             </p>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1.5 tabular-nums">
               <div className="flex justify-between">

@@ -62,6 +62,13 @@ export interface Task {
   updatedAt: string;
 }
 
+export interface WorkspaceSnapshot {
+  settings: AppSettings;
+  workCycles: WorkCycle[];
+  sprints: Sprint[];
+  tasks: Task[];
+}
+
 export type WorkCycleTimeSection = 'active' | 'upcoming' | 'past';
 
 export interface ProgressSummary {

@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
+import { mergeWorkspaceSnapshots, type MergeBackupResult } from './merge';
 import { isValidLocalDate } from './dates';
 import { createId } from './scheduling';
 import {
@@ -10,8 +11,11 @@ import {
   type Sprint,
   type Task,
   type WorkCycle,
+  type WorkspaceSnapshot,
   type WorkflowStatus,
 } from './types';
+
+export type { MergeBackupResult } from './merge';
 
 const NATIVE_WORKSPACE_FILE = 'task-tracker-workspace.json';
 
@@ -105,13 +109,6 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
     tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed.'));
     tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted.'));
   });
-}
-
-export interface WorkspaceSnapshot {
-  settings: AppSettings;
-  workCycles: WorkCycle[];
-  sprints: Sprint[];
-  tasks: Task[];
 }
 
 let nativeCache: WorkspaceSnapshot | null = null;
@@ -802,16 +799,34 @@ export function validateBackupJson(rawText: string): BackupValidationResult {
   };
 }
 
-export async function replaceWorkspaceFromBackup(payload: BackupPayloadV1): Promise<WorkspaceSnapshot> {
-  const snapshot: WorkspaceSnapshot = {
+/**
+ * Import a backup by MERGING it into the current workspace rather than
+ * replacing it.
+ *
+ * - The main app **settings** are overridden by the imported settings.
+ * - Work cycles, sprints, and tasks are **added by id**: items that already
+ *   exist locally are left untouched (existing data is never changed or
+ *   removed), and items with a new id are appended.
+ *
+ * Returns the merged snapshot plus a count of how many new items were added,
+ * so the UI can tell the user exactly what changed.
+ */
+export async function mergeWorkspaceFromBackup(
+  payload: BackupPayloadV1
+): Promise<MergeBackupResult> {
+  const current = await loadWorkspace();
+
+  const result = mergeWorkspaceSnapshots(current, {
     settings: payload.data.settings,
     workCycles: payload.data.workCycles,
     sprints: payload.data.sprints,
     tasks: payload.data.tasks,
-  };
+  });
+  const merged = result.snapshot;
+
   if (isNativeApp()) {
-    await flushNativeWorkspace(snapshot);
-    return snapshot;
+    await flushNativeWorkspace(merged);
+    return result;
   }
 
   const db = await openDatabase();
@@ -825,30 +840,23 @@ export async function replaceWorkspaceFromBackup(payload: BackupPayloadV1): Prom
   const sprintStore = tx.objectStore(STORE_SPRINTS);
   const taskStore = tx.objectStore(STORE_TASKS);
 
-  settingsStore.clear();
-  cycleStore.clear();
-  sprintStore.clear();
-  taskStore.clear();
-
-  settingsStore.put(payload.data.settings);
-  for (const cycle of payload.data.workCycles) {
+  // No clears: we keep every existing record and upsert the merged set, so
+  // existing cycles/sprints/tasks are preserved and only new ids are added.
+  // Only the settings record is overwritten (it has the fixed key 'app_settings').
+  settingsStore.put(merged.settings);
+  for (const cycle of merged.workCycles) {
     cycleStore.put(cycle);
   }
-  for (const sprint of payload.data.sprints) {
+  for (const sprint of merged.sprints) {
     sprintStore.put(sprint);
   }
-  for (const task of payload.data.tasks) {
+  for (const task of merged.tasks) {
     taskStore.put(task);
   }
 
   await transactionDone(tx);
 
-  return {
-    settings: payload.data.settings,
-    workCycles: payload.data.workCycles,
-    sprints: payload.data.sprints,
-    tasks: payload.data.tasks,
-  };
+  return result;
 }
 
 export function createNewStatus(name: string): WorkflowStatus {

@@ -10,10 +10,11 @@ import {
   deleteTask,
   deleteWorkCycleCascade,
   loadWorkspace,
-  replaceWorkspaceFromBackup,
+  mergeWorkspaceFromBackup,
   saveTask,
   saveWorkCycle,
 } from '../core/db';
+import type { MergeBackupResult } from '../core/db';
 import {
   applyMergeWithNext,
   createId,
@@ -90,7 +91,7 @@ interface WorkspaceContextValue {
     updatedTasks?: Task[]
   ) => Promise<void>;
   exportBackupJson: () => string;
-  importBackup: (payload: BackupPayloadV1) => Promise<void>;
+  importBackup: (payload: BackupPayloadV1) => Promise<MergeBackupResult>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -375,13 +376,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return JSON.stringify(payload, null, 2);
   }, [settings, workCycles, sprints, tasks]);
 
-  const importBackup = useCallback(async (payload: BackupPayloadV1) => {
-    const snapshot = await replaceWorkspaceFromBackup(payload);
-    setSettings(snapshot.settings);
-    setWorkCycles(snapshot.workCycles);
-    setSprints(snapshot.sprints);
-    setTasks(snapshot.tasks);
-  }, []);
+  const importBackup = useCallback(
+    async (payload: BackupPayloadV1): Promise<MergeBackupResult> => {
+      const result = await mergeWorkspaceFromBackup(payload);
+      setSettings(result.snapshot.settings);
+      setWorkCycles(result.snapshot.workCycles);
+      setSprints(result.snapshot.sprints);
+      setTasks(result.snapshot.tasks);
+      return result;
+    },
+    []
+  );
 
   return (
     <WorkspaceContext.Provider
