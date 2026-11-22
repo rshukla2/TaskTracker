@@ -23,6 +23,35 @@
   }
 }
 
+/* Keep the app exactly as wide as the screen on phones (no sideways scroll). */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#root {
+  overflow-x: clip;
+}
+
+/* iOS zooms the page when a field under 16px gets focus, and the zoom leaves the
+   page wider than the screen. 16px on phones prevents it; larger screens keep text-sm.
+   Unlayered so it overrides Tailwind's text-sm utility. */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* iOS gives date inputs an intrinsic min width that can push past their container. */
+input[type='date'] {
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .font-mono-tabular {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
