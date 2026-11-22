@@ -72,3 +72,6 @@ ios/App/App/config.xml
 *.mobileprovision
 *.p12
 *.cer
+
+# Xcode SwiftPM build state
+ios/**/xcshareddata/swiftpm/
