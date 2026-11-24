@@ -23,11 +23,12 @@ A lightweight Node.js API server for syncing task data across devices. Uses Expr
    docker-compose up -d
    ```
 
-Or run directly:
+Or run on this computer for testing (creates `.env` with a random key, prints URL + key):
 ```bash
-npm install
-PORT=8787 SYNC_KEY=your-key node index.js
+./run-local.sh
 ```
+The app's web version (GitHub Pages) can reach `http://localhost:8787` from Chrome; Chrome may
+ask to allow access to devices on your local network — click Allow.
 
 ## API Endpoints
 

@@ -1,0 +1,19 @@
+{
+  "name": "task-tracker-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "task-tracker-mcp": "index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.25.2"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
