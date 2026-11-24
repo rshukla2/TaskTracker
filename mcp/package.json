@@ -1,6 +1,28 @@
 {
-  "name": "task-tracker-mcp",
+  "name": "@rishishukla2k/task-tracker-mcp",
   "version": "0.1.0",
+  "description": "MCP server that lets AI assistants (Claude, Cursor, etc.) read and update your Task Tracker tasks through your own sync server.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "task-tracker",
+    "claude",
+    "tasks"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rshukla2/TaskTracker.git",
+    "directory": "mcp"
+  },
+  "homepage": "https://rshukla2.github.io/TaskTracker/connect-ai/",
+  "bugs": "https://github.com/rshukla2/TaskTracker/issues",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "task-tracker-mcp": "index.js"

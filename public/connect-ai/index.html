@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Connect your AI — Task Tracker</title>
+    <meta
+      name="description"
+      content="Connect AI assistants like Claude, Cursor, and n8n to your Task Tracker via an optional sync server you control."
+    />
+    <meta property="og:title" content="Connect your AI — Task Tracker" />
+    <meta
+      name="twitter:card" content="summary"
+    />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #0f172a;
+        --muted: #475569;
+        --faint: #64748b;
+        --line: #e2e8f0;
+        --card: #f8fafc;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: max(1.5rem, env(safe-area-inset-top)) 1.25rem calc(2.5rem + env(safe-area-inset-bottom));
+      }
+      header {
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .eyebrow {
+        margin: 0 0 0.25rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .effective {
+        margin: 0.5rem 0 0;
+        font-size: 0.75rem;
+        color: var(--faint);
+      }
+      a.back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+      }
+      a.back:hover {
+        color: var(--fg);
+        text-decoration: underline;
+      }
+      .lead {
+        color: var(--muted);
+      }
+      section {
+        margin-top: 1.75rem;
+      }
+      section h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.0625rem;
+        font-weight: 600;
+      }
+      p {
+        margin: 0.5rem 0;
+      }
+      pre {
+        background: var(--card);
+        border: 1px solid var(--line);
+        overflow-x: auto;
+        font-family: Menlo, Monaco, "Courier New", monospace;
+        font-size: 0.85rem;
+        padding: 1rem;
+        margin: 0.75rem 0;
+      }
+      code {
+        font-family: Menlo, Monaco, "Courier New", monospace;
+        font-size: 0.85rem;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 0.75rem 0;
+      }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 0.5rem;
+        text-align: left;
+      }
+      th {
+        background: var(--card);
+        font-weight: 600;
+      }
+      tr:nth-child(even) {
+        background: var(--card);
+      }
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.75rem;
+        color: var(--faint);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1120;
+          --fg: #e2e8f0;
+          --muted: #cbd5e1;
+          --faint: #94a3b8;
+          --line: #1e293b;
+          --card: #111827;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="../">&#8592; Back to Task Tracker</a>
+      <header>
+        <p class="eyebrow">Task Tracker</p>
+        <h1>Connect your AI</h1>
+        <p class="effective">Connect AI assistants to your tasks via an optional sync server.</p>
+      </header>
+
+      <p class="lead">
+        Task Tracker can let AI assistants like Claude, Cursor, other MCP apps, and n8n read and update your tasks.
+        This is optional and works only through a sync server you run and control—nothing goes to us.
+        For full details, read our <a href="../privacy/">privacy policy</a>.
+      </p>
+
+      <section>
+        <h2>Step 1 – Run your sync server</h2>
+        <p>
+          You need Docker installed. Clone the repo and set up the server:
+        </p>
+        <pre><code>git clone https://github.com/rshukla2/TaskTracker.git
+cd TaskTracker/server
+cp .env.example .env</code></pre>
+        <p>
+          Set <code>SYNC_KEY</code> to a random 32+ character string:
+        </p>
+        <pre><code>openssl rand -hex 32</code></pre>
+        <p>
+          Then start the server:
+        </p>
+        <pre><code>docker compose up -d</code></pre>
+        <p>
+          Note: The provided <code>docker-compose.yml</code> joins an external network named <code>n8n_default</code>.
+          If you don't use that, remove the <code>networks</code> section and add ports:
+        </p>
+        <pre><code>ports:
+  - '8787:8787'</code></pre>
+        <p>
+          To use it from your phone, put it behind HTTPS (for example with Caddy). Check it works:
+        </p>
+        <pre><code>curl https://your-server/health</code></pre>
+        <p>
+          It should return <code>{"status":"ok", ...}</code>.
+        </p>
+        <p>
+          For quick testing on a Mac: <code>./run-local.sh</code> (prints URL + key).
+        </p>
+      </section>
+
+      <section>
+        <h2>Step 2 – Connect the app</h2>
+        <p>
+          In the Task Tracker app: Settings &gt; Sync (optional) &gt; enter your Server URL and Sync Key &gt;
+          tap <strong>Test connection</strong> &gt; turn on <strong>Enable sync</strong>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Step 3 – Connect your AI</h2>
+        <p>
+          The MCP server package is <code>@rishishukla2k/task-tracker-mcp</code> (needs Node 20+).
+          Set environment variables <code>TASKTRACKER_URL</code> and <code>TASKTRACKER_KEY</code>.
+        </p>
+
+        <h3>Claude Code</h3>
+        <pre><code>claude mcp add tasktracker -e TASKTRACKER_URL=https://your-server -e TASKTRACKER_KEY=your-key -- npx -y @rishishukla2k/task-tracker-mcp</code></pre>
+
+        <h3>Claude Desktop</h3>
+        <p>
+          Settings &gt; Developer &gt; Edit Config. Add to <code>claude_desktop_config.json</code>:
+        </p>
+        <pre><code>{
+  "mcpServers": {
+    "tasktracker": {
+      "command": "npx",
+      "args": ["-y", "@rishishukla2k/task-tracker-mcp"],
+      "env": {
+        "TASKTRACKER_URL": "https://your-server",
+        "TASKTRACKER_KEY": "your-key"
+      }
+    }
+  }
+}</code></pre>
+        <p>Restart Claude Desktop after editing.</p>
+
+        <h3>Cursor and other MCP apps</h3>
+        <p>
+          Same JSON in their MCP config (Cursor: <code>~/.cursor/mcp.json</code>).
+        </p>
+
+        <h3>n8n or any script</h3>
+        <p>
+          Call the HTTP API directly with header <code>Authorization: Bearer &lt;key&gt;</code>:
+        </p>
+        <pre><code>curl -H 'Authorization: Bearer your-key' 'https://your-server/api/tasks?completed=false'</code></pre>
+      </section>
+
+      <section>
+        <h2>What your AI can do</h2>
+        <p>
+          Once connected, your AI gets these tools:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>list_statuses</code></td>
+              <td>List the task statuses (default and custom).</td>
+            </tr>
+            <tr>
+              <td><code>list_work_cycles</code></td>
+              <td>List your work cycles.</td>
+            </tr>
+            <tr>
+              <td><code>list_sprints</code></td>
+              <td>List the sprints in a work cycle.</td>
+            </tr>
+            <tr>
+              <td><code>list_tasks</code></td>
+              <td>List tasks, filtered by status, cycle, sprint, done or due date.</td>
+            </tr>
+            <tr>
+              <td><code>get_task</code></td>
+              <td>Get one task by its ID.</td>
+            </tr>
+            <tr>
+              <td><code>create_task</code></td>
+              <td>Create a task in a sprint.</td>
+            </tr>
+            <tr>
+              <td><code>update_task</code></td>
+              <td>Change a task's title, status, due date or other fields.</td>
+            </tr>
+            <tr>
+              <td><code>complete_task</code></td>
+              <td>Mark a task as completed.</td>
+            </tr>
+            <tr>
+              <td><code>reopen_task</code></td>
+              <td>Reopen a completed task.</td>
+            </tr>
+            <tr>
+              <td><code>delete_task</code></td>
+              <td>Delete a task (it syncs as deleted on your devices).</td>
+            </tr>
+            <tr>
+              <td><code>changes_since</code></td>
+              <td>See what changed since a given time.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Example prompts</h3>
+        <ul>
+          <li>"What is due this week?"</li>
+          <li>"Add a task &quot;Email the landlord&quot; to my current sprint"</li>
+          <li>"Mark the dentist task done"</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Keep your key safe</h2>
+        <p>
+          Anyone with your sync key can read and change your tasks. Rotate it by changing
+          <code>SYNC_KEY</code> in your server's <code>.env</code> and restarting, then update the app
+          and AI config with the new key.
+        </p>
+      </section>
+
+      <section>
+        <h2>Help</h2>
+        <p>
+          For questions and bug reports, open an issue on GitHub:
+          <a href="https://github.com/rshukla2/TaskTracker/issues">github.com/rshukla2/TaskTracker/issues</a>
+        </p>
+      </section>
+
+      <footer>
+        Task Tracker — Optional sync, full control, zero data collection.
+      </footer>
+    </div>
+  </body>
+</html>

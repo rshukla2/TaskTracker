@@ -9,7 +9,9 @@ Set the following environment variables:
 - `TASKTRACKER_URL` - The URL of your Task Tracker server (e.g., `https://tasks.example.com`)
 - `TASKTRACKER_KEY` - Your Task Tracker API key (SYNC_KEY)
 
-## Installation
+Full guide: https://rshukla2.github.io/TaskTracker/connect-ai/
+
+## Installation (from source)
 
 ```bash
 cd mcp
@@ -24,10 +26,10 @@ Add to Claude Code:
 claude mcp add tasktracker -e TASKTRACKER_URL=https://your-server -e TASKTRACKER_KEY=your-key -- node /absolute/path/to/mcp/index.js
 ```
 
-Or with npx (once published):
+Or with npx (no install needed):
 
 ```bash
-claude mcp add tasktracker -e TASKTRACKER_URL=https://your-server -e TASKTRACKER_KEY=your-key -- npx task-tracker-mcp
+claude mcp add tasktracker -e TASKTRACKER_URL=https://your-server -e TASKTRACKER_KEY=your-key -- npx -y @rishishukla2k/task-tracker-mcp
 ```
 
 ## Available Tools
