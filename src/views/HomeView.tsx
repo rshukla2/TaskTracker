@@ -1,4 +1,5 @@
-import { Plus, Settings } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Plus, Settings, Smartphone } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { NewWorkCycleModal } from '../components/NewWorkCycleModal';
 import { WorkCycleCard } from '../components/WorkCycleCard';
@@ -88,6 +89,16 @@ export function HomeView({ today, onOpenCycle, onOpenSettings }: HomeViewProps) 
           </span>
 
           <div className="flex items-center gap-2 shrink-0">
+            {Capacitor.isNativePlatform() ? null : (
+              <a
+                href={`${import.meta.env.BASE_URL}get-app/`}
+                aria-label="Get the iPhone app"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 whitespace-nowrap shrink-0"
+              >
+                <Smartphone className="h-4 w-4" />
+                <span className="hidden sm:inline">Get the app</span>
+              </a>
+            )}
             <button
               type="button"
               onClick={onOpenSettings}
