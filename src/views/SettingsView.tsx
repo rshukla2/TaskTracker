@@ -10,6 +10,8 @@ import { validateBackupJson } from '../core/db';
 import type { BackupValidationResult } from '../core/types';
 import { useWorkspace } from '../state/WorkspaceContext';
 import appIcon from '../assets/task-tracker-icon.png';
+import { loadConfig } from '../core/syncConfig';
+import { testConnection } from '../core/syncClient';
 
 interface SettingsViewProps {
   onBack: () => void;
@@ -23,6 +25,10 @@ export function SettingsView({ onBack }: SettingsViewProps) {
     updateDefaultStatuses,
     exportBackupJson,
     importBackup,
+    syncState,
+    setSyncEnabled,
+    disconnectAndDeleteCloud,
+    runSync,
   } = useWorkspace();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -30,6 +36,13 @@ export function SettingsView({ onBack }: SettingsViewProps) {
   const [pendingImport, setPendingImport] = useState<BackupValidationResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
+
+  // Sync settings state
+  const [syncUrl, setSyncUrl] = useState(loadConfig().url);
+  const [syncKey, setSyncKey] = useState(loadConfig().key);
+  const [syncTesting, setSyncTesting] = useState(false);
+  const [confirmDeleteCloud, setConfirmDeleteCloud] = useState(false);
+  const [syncTestResult, setSyncTestResult] = useState<'ok' | '401' | 'unreachable' | null>(null);
 
   // Tasks belonging to cycles that inherit app defaults
   const defaultScopeTasks = useMemo(() => {
@@ -216,6 +229,178 @@ export function SettingsView({ onBack }: SettingsViewProps) {
               <Upload className="h-4 w-4" />
               Import Data
             </button>
+          </div>
+        </section>
+
+        {/* Sync Section */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Sync (optional)</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Off by default. Sends your data only to the server you enter.
+            </p>
+          </div>
+
+          {/* Connection test result */}
+          {syncTestResult && (
+            <div
+              className={`rounded-xl p-3.5 text-sm ${
+                syncTestResult === 'ok'
+                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-900'
+                  : syncTestResult === '401'
+                  ? 'border border-rose-200 bg-rose-50 text-rose-900'
+                  : 'border border-amber-200 bg-amber-50 text-amber-900'
+              }`}
+            >
+              {syncTestResult === 'ok' && 'Connection successful!'}
+              {syncTestResult === '401' && 'Authentication failed. Please check your sync key.'}
+              {syncTestResult === 'unreachable' && 'Could not reach the server. Please check your URL.'}
+            </div>
+          )}
+
+          {/* Server URL input */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Server URL</label>
+            <input
+              type="url"
+              value={syncUrl}
+              onChange={(e) => {
+                setSyncUrl(e.target.value);
+                setSyncTestResult(null);
+              }}
+              placeholder="https://example.com"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+            />
+          </div>
+
+          {/* Sync key input */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sync Key</label>
+            <input
+              type="password"
+              value={syncKey}
+              onChange={(e) => {
+                setSyncKey(e.target.value);
+                setSyncTestResult(null);
+              }}
+              placeholder="Enter your sync key"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+            />
+          </div>
+
+          {/* Test connection button */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!syncUrl || !syncKey) {
+                  setSyncTestResult('unreachable');
+                  return;
+                }
+                setSyncTesting(true);
+                try {
+                  const result = await testConnection(syncUrl, syncKey);
+                  setSyncTestResult(result);
+                } catch {
+                  setSyncTestResult('unreachable');
+                } finally {
+                  setSyncTesting(false);
+                }
+              }}
+              disabled={!syncUrl || !syncKey || syncTesting}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {syncTesting ? 'Testing…' : 'Test connection'}
+            </button>
+          </div>
+
+          {/* Toggle sync */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <p className="text-sm font-medium text-slate-900">Enable Sync</p>
+              <p className="text-xs text-slate-500">
+                {syncState.enabled ? 'Sync is active' : 'Sync is disabled'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await setSyncEnabled(!syncState.enabled, syncUrl, syncKey);
+              }}
+              role="switch"
+              aria-checked={syncState.enabled}
+              aria-label="Enable sync"
+              disabled={!syncState.enabled && (!syncUrl || !syncKey)}
+              className={`relative inline-flex h-6 w-11 disabled:opacity-50 items-center rounded-full transition-colors ${
+                syncState.enabled ? 'bg-slate-900' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  syncState.enabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Sync status */}
+          <div className="pt-2">
+            <p className="text-sm text-slate-600">
+              {syncState.status === 'syncing' && 'Syncing…'}
+              {syncState.status === 'error' && (
+                <span className="text-rose-600">Error: {syncState.error}</span>
+              )}
+              {syncState.status === 'idle' && syncState.lastSyncedAt && (
+                `Last synced: ${new Date(syncState.lastSyncedAt).toLocaleString()}`
+              )}
+              {syncState.status === 'off' && 'Sync is disabled'}
+            </p>
+          </div>
+
+          {/* Sync now button */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!syncState.enabled) {
+                  return;
+                }
+                await runSync();
+              }}
+              disabled={!syncState.enabled || syncState.status === 'syncing'}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {syncState.status === 'syncing' ? 'Syncing…' : 'Sync now'}
+            </button>
+          </div>
+
+          {/* Delete cloud copy */}
+          <div className="pt-2 border-t border-slate-200 mt-2">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirmDeleteCloud) {
+                  setConfirmDeleteCloud(true);
+                  return;
+                }
+                setConfirmDeleteCloud(false);
+                await disconnectAndDeleteCloud();
+                setSyncTestResult(null);
+              }}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+            >
+              {confirmDeleteCloud ? 'Tap again to delete cloud copy' : 'Delete cloud copy'}
+            </button>
+            {confirmDeleteCloud && (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteCloud(false)}
+                className="ml-2 inline-flex min-h-[44px] items-center justify-center rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            )}
+            <p className="mt-1 text-xs text-slate-500">Deletes the server copy and turns sync off. Data on this device stays.</p>
           </div>
         </section>
 

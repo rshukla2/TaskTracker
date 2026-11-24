@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   buildBackupPayload,
   commitCycleStatusAndTaskUpdates,
@@ -21,6 +21,8 @@ import {
   generateSprintsForCycle,
 } from '../core/scheduling';
 import { findCompletedStatus } from '../core/statuses';
+import { clearShadow, loadConfig, saveConfig } from '../core/syncConfig';
+import { deleteCloudCopy, syncNow } from '../core/syncClient';
 import type {
   AppSettings,
   BackupPayloadV1,
@@ -60,6 +62,15 @@ interface WorkspaceContextValue {
   workCycles: WorkCycle[];
   sprints: Sprint[];
   tasks: Task[];
+  syncState: {
+    enabled: boolean;
+    status: 'idle' | 'syncing' | 'error' | 'off';
+    lastSyncedAt: string | null;
+    error: string | null;
+  };
+  runSync: () => Promise<void>;
+  setSyncEnabled: (enabled: boolean, url: string, key: string) => Promise<void>;
+  disconnectAndDeleteCloud: () => Promise<void>;
   createCycle: (input: CreateWorkCycleInput) => Promise<WorkCycle>;
   updateCycleDetails: (
     cycleId: string,
@@ -104,6 +115,18 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
 
+  // Sync state
+  const [syncEnabled, setSyncEnabledState] = useState<boolean>(loadConfig().enabled);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error' | 'off'>('off');
+  const [syncLastSyncedAt, setSyncLastSyncedAt] = useState<string | null>(loadConfig().lastSyncedAt);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  // Track last local write time for debouncing
+  const lastLocalWriteRef = useRef<number>(0);
+  const syncDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const syncDebounceTriggerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load initial data
   useEffect(() => {
     let active = true;
     loadWorkspace()
@@ -114,6 +137,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setSprints(snapshot.sprints);
         setTasks(snapshot.tasks);
         setLoading(false);
+
+        // Sync on initial load if enabled
+        const config = loadConfig();
+        if (config.enabled) {
+          runSyncInternal();
+        }
       })
       .catch((err) => {
         if (!active) return;
@@ -125,6 +154,54 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Handle sync triggers
+  useEffect(() => {
+    const config = loadConfig();
+
+    if (!config.enabled) {
+      setSyncStatus('off');
+      return;
+    }
+
+    // Visibility change handler
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        runSyncInternal();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Interval handler for periodic sync (every 60 seconds)
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        runSyncInternal();
+      }
+    }, 60000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // Debounced sync trigger for local writes
+  const triggerDebouncedSync = useCallback(() => {
+    lastLocalWriteRef.current = Date.now();
+
+    if (syncDebounceTriggerRef.current) {
+      clearTimeout(syncDebounceTriggerRef.current);
+    }
+
+    syncDebounceTriggerRef.current = setTimeout(() => {
+      const config = loadConfig();
+      if (config.enabled && Date.now() - lastLocalWriteRef.current >= 3000) {
+        runSyncInternal();
+      }
+    }, 3000); // 3 second debounce
+  }, []);
+
+  // Sync all local write actions with sync trigger
   const createCycle = useCallback(async (input: CreateWorkCycleInput) => {
     const nowIso = new Date().toISOString();
     const cycleId = createId();
@@ -153,8 +230,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     await createWorkCycleWithSprints(cycle, generatedSprints);
     setWorkCycles((prev) => [...prev, cycle]);
     setSprints((prev) => [...prev, ...generatedSprints]);
+    triggerDebouncedSync();
     return cycle;
-  }, []);
+  }, [triggerDebouncedSync]);
 
   const updateCycleDetails = useCallback(
     async (
@@ -174,8 +252,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       };
       await saveWorkCycle(updated);
       setWorkCycles((prev) => prev.map((c) => (c.id === cycleId ? updated : c)));
+      triggerDebouncedSync();
     },
-    [workCycles]
+    [workCycles, triggerDebouncedSync]
   );
 
   const deleteCycle = useCallback(async (cycleId: string) => {
@@ -183,7 +262,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setWorkCycles((prev) => prev.filter((c) => c.id !== cycleId));
     setSprints((prev) => prev.filter((s) => s.workCycleId !== cycleId));
     setTasks((prev) => prev.filter((t) => t.workCycleId !== cycleId));
-  }, []);
+    triggerDebouncedSync();
+  }, [triggerDebouncedSync]);
 
   const commitSprintEditAction = useCallback(
     async (
@@ -213,8 +293,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           prev.map((c) => (c.id === updatedCycle!.id ? updatedCycle! : c))
         );
       }
+      triggerDebouncedSync();
     },
-    [workCycles]
+    [workCycles, triggerDebouncedSync]
   );
 
   const commitSprintMergeAction = useCallback(
@@ -246,8 +327,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       const updatedTaskMap = new Map(updatedTasks.map((t) => [t.id, t]));
       setTasks((prev) => prev.map((t) => updatedTaskMap.get(t.id) ?? t));
+      triggerDebouncedSync();
     },
-    [sprints, tasks]
+    [sprints, tasks, triggerDebouncedSync]
   );
 
   const createTask = useCallback(async (input: CreateTaskInput) => {
@@ -271,8 +353,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     };
     await saveTask(task);
     setTasks((prev) => [...prev, task]);
+    triggerDebouncedSync();
     return task;
-  }, []);
+  }, [triggerDebouncedSync]);
 
   const updateTask = useCallback(async (updated: Task) => {
     const nextTask: Task = {
@@ -282,7 +365,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     };
     await saveTask(nextTask);
     setTasks((prev) => prev.map((t) => (t.id === nextTask.id ? nextTask : t)));
-  }, []);
+    triggerDebouncedSync();
+  }, [triggerDebouncedSync]);
 
   const toggleTaskCompletion = useCallback(
     async (taskId: string, taskOverride?: Task) => {
@@ -324,14 +408,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       };
       await saveTask(nextTask);
       setTasks((prev) => prev.map((t) => (t.id === taskId ? nextTask : t)));
+      triggerDebouncedSync();
     },
-    [tasks, workCycles, settings.defaultStatuses]
+    [tasks, workCycles, settings.defaultStatuses, triggerDebouncedSync]
   );
 
   const deleteTaskAction = useCallback(async (taskId: string) => {
     await deleteTask(taskId);
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
-  }, []);
+    triggerDebouncedSync();
+  }, [triggerDebouncedSync]);
 
   const updateDefaultStatuses = useCallback(
     async (defaultStatuses: WorkflowStatus[], updatedTasks: Task[] = []) => {
@@ -346,8 +432,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const updatedMap = new Map(updatedTasks.map((t) => [t.id, t]));
         setTasks((prev) => prev.map((t) => updatedMap.get(t.id) ?? t));
       }
+      triggerDebouncedSync();
     },
-    [settings]
+    [settings, triggerDebouncedSync]
   );
 
   const updateCycleStatusConfig = useCallback(
@@ -362,8 +449,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const updatedMap = new Map(updatedTasks.map((t) => [t.id, t]));
         setTasks((prev) => prev.map((t) => updatedMap.get(t.id) ?? t));
       }
+      triggerDebouncedSync();
     },
-    []
+    [triggerDebouncedSync]
   );
 
   const exportBackupJson = useCallback(() => {
@@ -388,6 +476,73 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  // Sync function that handles the actual sync logic
+  const runSyncInternal = useCallback(async () => {
+    const config = loadConfig();
+    if (!config.enabled) {
+      setSyncStatus('off');
+      return;
+    }
+
+    setSyncStatus('syncing');
+    setSyncError(null);
+
+    try {
+      const result = await syncNow();
+
+      setSyncStatus('idle');
+      setSyncLastSyncedAt(new Date().toISOString());
+      setSyncError(null);
+
+      // Reload state if local data changed
+      if (result.changedLocal) {
+        const snapshot = await loadWorkspace();
+        setSettings(snapshot.settings);
+        setWorkCycles(snapshot.workCycles);
+        setSprints(snapshot.sprints);
+        setTasks(snapshot.tasks);
+      }
+    } catch (err) {
+      setSyncStatus('error');
+      setSyncError(err instanceof Error ? err.message : 'Sync failed');
+    }
+  }, []);
+
+  const setSyncEnabled = useCallback(
+    async (enabled: boolean, url: string, key: string) => {
+      const prev = loadConfig();
+      const cleanUrl = url.trim().replace(/\/+$/, '');
+      const cleanKey = key.trim();
+      if (prev.url !== cleanUrl || prev.key !== cleanKey) {
+        // Different server or key: start fresh so everything is compared again.
+        clearShadow();
+        saveConfig({ lastSeq: 0, lastSyncedAt: null });
+      }
+      saveConfig({ enabled, url: cleanUrl, key: cleanKey });
+      setSyncEnabledState(enabled);
+      if (enabled) {
+        await runSyncInternal();
+      } else {
+        setSyncStatus('off');
+        setSyncError(null);
+      }
+    },
+    [runSyncInternal]
+  );
+
+  const disconnectAndDeleteCloud = useCallback(async () => {
+    await deleteCloudCopy();
+    setSyncEnabledState(false);
+    setSyncStatus('off');
+    setSyncError(null);
+    setSyncLastSyncedAt(null);
+  }, []);
+
+  // Public runSync function (exposed to consumers)
+  const runSync = useCallback(() => {
+    return runSyncInternal();
+  }, [runSyncInternal]);
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -397,6 +552,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         workCycles,
         sprints,
         tasks,
+        syncState: {
+          enabled: syncEnabled,
+          status: syncStatus,
+          lastSyncedAt: syncLastSyncedAt,
+          error: syncError,
+        },
+        runSync,
+        setSyncEnabled,
+        disconnectAndDeleteCloud,
         createCycle,
         updateCycleDetails,
         deleteCycle,

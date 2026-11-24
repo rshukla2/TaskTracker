@@ -32,6 +32,14 @@ const allowedOrigins = [
   'http://localhost:3000',
 ];
 
+// Chrome Private Network Access: lets the GitHub Pages site reach a server on localhost/LAN.
+app.use((req, res, next) => {
+  if (req.headers['access-control-request-private-network'] === 'true') {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  }
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {

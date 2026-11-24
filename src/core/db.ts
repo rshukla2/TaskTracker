@@ -151,6 +151,39 @@ async function flushNativeWorkspace(snapshot: WorkspaceSnapshot): Promise<void> 
   await nativeWriteChain;
 }
 
+export async function replaceWorkspace(snapshot: WorkspaceSnapshot): Promise<void> {
+  if (isNativeApp()) {
+    await flushNativeWorkspace(snapshot);
+    return;
+  }
+
+  const db = await openDatabase();
+  const tx = db.transaction(
+    [STORE_SETTINGS, STORE_WORK_CYCLES, STORE_SPRINTS, STORE_TASKS],
+    'readwrite'
+  );
+
+  // Clear all stores and re-insert all items
+  tx.objectStore(STORE_SETTINGS).clear();
+  tx.objectStore(STORE_WORK_CYCLES).clear();
+  tx.objectStore(STORE_SPRINTS).clear();
+  tx.objectStore(STORE_TASKS).clear();
+
+  // Put all items
+  tx.objectStore(STORE_SETTINGS).put(snapshot.settings);
+  for (const cycle of snapshot.workCycles) {
+    tx.objectStore(STORE_WORK_CYCLES).put(cycle);
+  }
+  for (const sprint of snapshot.sprints) {
+    tx.objectStore(STORE_SPRINTS).put(sprint);
+  }
+  for (const task of snapshot.tasks) {
+    tx.objectStore(STORE_TASKS).put(task);
+  }
+
+  await transactionDone(tx);
+}
+
 async function ensureNativeCache(): Promise<WorkspaceSnapshot> {
   if (nativeCache) return nativeCache;
   try {
