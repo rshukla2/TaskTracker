@@ -1,0 +1,17 @@
+services:
+  tasksync:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tasksync
+    restart: unless-stopped
+    networks:
+      - n8n_default
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+
+networks:
+  n8n_default:
+    external: true
