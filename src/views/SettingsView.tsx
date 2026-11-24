@@ -419,15 +419,16 @@ export function SettingsView({ onBack }: SettingsViewProps) {
               <h2 id="privacy-policy-title" className="text-lg font-semibold text-slate-900">
                 Privacy Policy
               </h2>
-              <p className="mt-0.5 text-xs text-slate-500">Effective November 18, 2026</p>
+              <p className="mt-0.5 text-xs text-slate-500">Effective November 24, 2026</p>
             </div>
           </div>
 
           <div className="space-y-4 text-sm leading-6 text-slate-700">
             <p>
               Task Tracker is a private, offline-first personal planning app. We do not collect,
-              transmit, sell, or share your personal information or app activity. The app has no
-              user accounts, analytics, advertising, backend, or developer-operated server.
+              sell, or share your personal information or app activity. The app has no user
+              accounts, analytics, or advertising, and the developer does not operate a server that
+              receives your data.
             </p>
 
             <div>
@@ -447,6 +448,17 @@ export function SettingsView({ onBack }: SettingsViewProps) {
                 device&apos;s share sheet. The backup is sent only to the destination you select.
                 Importing a backup reads the file you choose and stores its contents locally.
                 Task Tracker does not receive a copy of exported or imported data.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-slate-900">Optional sync to your own server</h3>
+              <p className="mt-1">
+                Sync is off by default. If you turn it on, your work cycles, sprints, tasks, and
+                workflow settings are sent over HTTPS only to the server address you enter. The
+                developer does not provide this server or receive your data. Turning sync off or
+                using &quot;Delete cloud copy&quot; stops sending data; connected tools such as AI
+                assistants follow their own privacy policies.
               </p>
             </div>
 
