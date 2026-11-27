@@ -44,14 +44,28 @@ All require `Authorization: Bearer <SYNC_KEY>` header.
 - `DELETE /api/sync/all` - Delete all data
 
 ### Agent (AI/n8n)
-- `GET /api/statuses` - Default + custom statuses
+
+#### Work cycles
 - `GET /api/work-cycles` - List work cycles
+- `POST /api/work-cycles` - Create work cycle with sprints
+- `PATCH /api/work-cycles/:id` - Update work cycle (name, description, end goal)
+
+#### Sprints
 - `GET /api/sprints?workCycleId=<id>` - Sprints for cycle
+- `POST /api/sprints` - Create sprint (add to cycle)
+- `PATCH /api/sprints/:id` - Update sprint (dates, name, end goal)
+- `POST /api/work-cycles/:id/resize-sprints` - Re-split sprints to new length
+
+#### Tasks
+- `GET /api/statuses` - Default + custom statuses
 - `GET /api/tasks?status=&workCycleId=&sprintId=&completed=&due_before=` - Tasks with filters
 - `GET /api/tasks/:id` - Get task by ID
 - `POST /api/tasks` - Create task (needs `title`, `sprintId`)
-- `PATCH /api/tasks/:id` - Update task
+- `PATCH /api/tasks/:id` - Update task (all fields optional except title)
+- `POST /api/tasks/:id/move-to-next-sprint` - Move task to next sprint, set deadline
 - `DELETE /api/tasks/:id` - Tombstone task
+
+#### Sync
 - `GET /api/changes?since=<ISO>` - Changes since time
 
 ## Examples

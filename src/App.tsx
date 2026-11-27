@@ -102,6 +102,9 @@ function TaskTrackerRouter() {
               sprintId: route.sprintId,
             })
           }
+          onMovedToSprint={(newSprintId) =>
+            navigate({ view: 'task', cycleId: route.cycleId, sprintId: newSprintId, taskId: route.taskId }, { replace: true })
+          }
         />
       );
   }

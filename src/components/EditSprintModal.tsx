@@ -205,7 +205,10 @@ export function EditSprintModal({
 
             {preview.proposedCycleEndDate ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                <span className="font-semibold">Work cycle end date will extend:</span>{' '}
+                <span className="font-semibold">
+                  Work cycle end date will{' '}
+                  {preview.proposedCycleEndDate > cycle.endDate ? 'extend' : 'move earlier'}:
+                </span>{' '}
                 <span className="tabular-nums">
                   {formatDisplayDate(cycle.endDate, { includeYear: true })} →{' '}
                   {formatDisplayDate(preview.proposedCycleEndDate, { includeYear: true })}
@@ -215,7 +218,10 @@ export function EditSprintModal({
 
             {preview.proposedCycleStartDate ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                <span className="font-semibold">Work cycle start date will move earlier:</span>{' '}
+                <span className="font-semibold">
+                  Work cycle start date will move{' '}
+                  {preview.proposedCycleStartDate < cycle.startDate ? 'earlier' : 'later'}:
+                </span>{' '}
                 <span className="tabular-nums">
                   {formatDisplayDate(cycle.startDate, { includeYear: true })} →{' '}
                   {formatDisplayDate(preview.proposedCycleStartDate, { includeYear: true })}

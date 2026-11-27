@@ -244,6 +244,8 @@ cp .env.example .env</code></pre>
         <p>
           Once connected, your AI gets these tools:
         </p>
+
+        <h3>Read tools</h3>
         <table>
           <thead>
             <tr>
@@ -273,12 +275,28 @@ cp .env.example .env</code></pre>
               <td>Get one task by its ID.</td>
             </tr>
             <tr>
+              <td><code>changes_since</code></td>
+              <td>See what changed since a given time.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Tasks</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
               <td><code>create_task</code></td>
-              <td>Create a task in a sprint.</td>
+              <td>Create a task in a sprint (title, description, deadline, estimated hours, effort, status, blocker reason).</td>
             </tr>
             <tr>
               <td><code>update_task</code></td>
-              <td>Change a task's title, status, due date or other fields.</td>
+              <td>Update any task field (title, description, deadline, hours, effort, status, blocker reason, sprint). All fields except title are optional; set to null to clear.</td>
             </tr>
             <tr>
               <td><code>complete_task</code></td>
@@ -289,21 +307,83 @@ cp .env.example .env</code></pre>
               <td>Reopen a completed task.</td>
             </tr>
             <tr>
+              <td><code>move_task_to_next_sprint</code></td>
+              <td>Move a task to the next sprint and set its deadline to that sprint's start date.</td>
+            </tr>
+            <tr>
               <td><code>delete_task</code></td>
               <td>Delete a task (it syncs as deleted on your devices).</td>
             </tr>
+          </tbody>
+        </table>
+
+        <h3>Work cycles</h3>
+        <table>
+          <thead>
             <tr>
-              <td><code>changes_since</code></td>
-              <td>See what changed since a given time.</td>
+              <th>Tool</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>create_work_cycle</code></td>
+              <td>Create a work cycle with one or more initial sprints.</td>
+            </tr>
+            <tr>
+              <td><code>update_work_cycle</code></td>
+              <td>Update a work cycle's name, description or end goal (dates are derived from sprints).</td>
             </tr>
           </tbody>
         </table>
+
+        <h3>Sprints</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>create_sprint</code></td>
+              <td>Add a sprint to a work cycle (specify length or end date; optionally insert after another sprint).</td>
+            </tr>
+            <tr>
+              <td><code>update_sprint</code></td>
+              <td>Update a sprint's name, end goal or dates.</td>
+            </tr>
+            <tr>
+              <td><code>resize_sprints</code></td>
+              <td>Re-split a work cycle's sprints to a new length (creates more sprints to reach the same end date, or extends the cycle).</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>How dates work</h3>
+        <p>
+          Sprints are always back to back: each sprint starts the day after the previous one ends.
+          Work cycle dates are derived from their sprints and cannot be set directly.
+        </p>
+        <ul>
+          <li><strong>Adding a sprint</strong> shifts all later sprints later by the new sprint's length; cycle end grows.</li>
+          <li><strong>Shrinking a sprint</strong> shifts later sprints earlier; cycle end shrinks.</li>
+          <li><strong>Resizing</strong> to shorter creates more sprints to keep the cycle end; resizing to longer extends the cycle.</li>
+          <li><strong>Default names</strong> (Sprint 1, Sprint 2, etc.) are renumbered when a sprint is inserted.</li>
+          <li><strong>Task deadlines</strong> are never moved automatically; use <code>move_task_to_next_sprint</code> to set a deadline to the next sprint's start date.</li>
+          <li><strong>No deletes</strong> for work cycles or sprints.</li>
+        </ul>
 
         <h3>Example prompts</h3>
         <ul>
           <li>"What is due this week?"</li>
           <li>"Add a task &quot;Email the landlord&quot; to my current sprint"</li>
           <li>"Mark the dentist task done"</li>
+          <li>"Create a 6-week work cycle called Launch with three 2-week sprints starting Dec 1"</li>
+          <li>"Make every sprint in Launch 5 days long"</li>
+          <li>"Add a 1-week buffer sprint after Sprint 2"</li>
+          <li>"Move my unfinished tasks in Sprint 3 to the next sprint"</li>
         </ul>
       </section>
 

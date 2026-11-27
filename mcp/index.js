@@ -9,7 +9,7 @@ const TASKTRACKER_KEY = process.env.TASKTRACKER_KEY;
 
 // Create MCP server
 const server = new McpServer(
-  { name: 'task-tracker', version: '0.1.0' },
+  { name: 'task-tracker', version: '0.2.0' },
   { capabilities: { tools: {} } }
 );
 
@@ -89,6 +89,67 @@ server.registerTool(
   }
 );
 
+// Tool: create_work_cycle - POST /api/work-cycles
+server.registerTool(
+  'create_work_cycle',
+  {
+    description: 'Create a new work cycle with one or more sprints. Sprints must be contiguous (back-to-back with no gaps or overlaps). Work cycle dates are derived from the sprints.',
+    inputSchema: {
+      name: z.string().min(1).describe('The work cycle name (required)'),
+      description: z.string().optional().describe('Optional work cycle description'),
+      endGoal: z.string().optional().describe('Optional work cycle end goal'),
+      sprints: z.array(z.object({
+        name: z.string().optional().describe('Optional sprint name'),
+        endGoal: z.string().optional().describe('Optional sprint end goal'),
+        startDate: z.string().describe('Sprint start date (YYYY-MM-DD)'),
+        endDate: z.string().describe('Sprint end date (YYYY-MM-DD)'),
+      })).min(1).describe('Array of sprints (at least one required)'),
+    },
+  },
+  async (args) => {
+    const envError = checkEnvVars();
+    if (envError) return formatResult(envError);
+    const body = {
+      name: args.name,
+      description: args.description,
+      endGoal: args.endGoal,
+      sprints: args.sprints.map(s => ({
+        name: s.name,
+        endGoal: s.endGoal,
+        startDate: s.startDate,
+        endDate: s.endDate,
+      })),
+    };
+    const result = await api('POST', '/api/work-cycles', body);
+    return formatResult(result);
+  }
+);
+
+// Tool: update_work_cycle - PATCH /api/work-cycles/:id
+server.registerTool(
+  'update_work_cycle',
+  {
+    description: 'Update a work cycle text fields (name, description, endGoal). Note: dates cannot be changed here - use update_sprint to change sprint dates, create_sprint to add sprints, or resize_sprints to resize all sprints.',
+    inputSchema: {
+      id: z.string().describe('The work cycle ID'),
+      name: z.string().optional().describe('New work cycle name'),
+      description: z.string().optional().describe('New work cycle description'),
+      endGoal: z.string().optional().describe('New work cycle end goal'),
+    },
+  },
+  async (args) => {
+    const envError = checkEnvVars();
+    if (envError) return formatResult(envError);
+    const body = {
+      name: args.name,
+      description: args.description,
+      endGoal: args.endGoal,
+    };
+    const result = await api('PATCH', `/api/work-cycles/${encodeURIComponent(args.id)}`, body);
+    return formatResult(result);
+  }
+);
+
 // Tool: list_sprints - GET /api/sprints?workCycleId=
 server.registerTool(
   'list_sprints',
@@ -102,6 +163,84 @@ server.registerTool(
     const envError = checkEnvVars();
     if (envError) return formatResult(envError);
     const result = await api('GET', `/api/sprints?workCycleId=${encodeURIComponent(args.workCycleId)}`);
+    return formatResult(result);
+  }
+);
+
+// Tool: create_sprint - POST /api/sprints
+server.registerTool(
+  'create_sprint',
+  {
+    description: 'Create a new sprint in a work cycle. If afterSprintId is provided, the new sprint is inserted after it and later sprints are shifted. If neither lengthDays nor endDate is provided, the default sprint length from the cycle is used.',
+    inputSchema: {
+      workCycleId: z.string().describe('The work cycle ID (required)'),
+      lengthDays: z.number().optional().describe('Sprint length in days (default: cycle\'s sprintLengthDays)'),
+      endDate: z.string().optional().describe('Sprint end date (YYYY-MM-DD) - overrides lengthDays if provided'),
+      afterSprintId: z.string().optional().describe('Insert after this sprint (default: append at end)'),
+      name: z.string().optional().describe('Optional sprint name'),
+      endGoal: z.string().optional().describe('Optional sprint end goal'),
+    },
+  },
+  async (args) => {
+    const envError = checkEnvVars();
+    if (envError) return formatResult(envError);
+    const body = {
+      workCycleId: args.workCycleId,
+      lengthDays: args.lengthDays,
+      endDate: args.endDate,
+      afterSprintId: args.afterSprintId,
+      name: args.name,
+      endGoal: args.endGoal,
+    };
+    const result = await api('POST', '/api/sprints', body);
+    return formatResult(result);
+  }
+);
+
+// Tool: update_sprint - PATCH /api/sprints/:id
+server.registerTool(
+  'update_sprint',
+  {
+    description: 'Update a sprint (name, endGoal, startDate, endDate). Note: only the first sprint\'s startDate can be changed directly; to move a later sprint\'s start, change the previous sprint\'s endDate. Changing endDate shifts every later sprint by the same number of days (keeping their lengths), and the work cycle dates follow the sprints. Tasks stay in their sprint; deadlines are not moved.',
+    inputSchema: {
+      id: z.string().describe('The sprint ID (required)'),
+      name: z.string().optional().describe('New sprint name'),
+      endGoal: z.string().optional().describe('New sprint end goal'),
+      startDate: z.string().optional().describe('New sprint start date (YYYY-MM-DD)'),
+      endDate: z.string().optional().describe('New sprint end date (YYYY-MM-DD)'),
+    },
+  },
+  async (args) => {
+    const envError = checkEnvVars();
+    if (envError) return formatResult(envError);
+    const body = {
+      name: args.name,
+      endGoal: args.endGoal,
+      startDate: args.startDate,
+      endDate: args.endDate,
+    };
+    const result = await api('PATCH', `/api/sprints/${encodeURIComponent(args.id)}`, body);
+    return formatResult(result);
+  }
+);
+
+// Tool: resize_sprints - POST /api/work-cycles/:id/resize-sprints
+server.registerTool(
+  'resize_sprints',
+  {
+    description: 'Resize all sprints in a work cycle to a new length. If shorter, new sprints are created to cover the same end date. If longer or equal, sprints are extended to the new length.',
+    inputSchema: {
+      workCycleId: z.string().describe('The work cycle ID'),
+      lengthDays: z.number().int().min(1).describe('New sprint length in days'),
+    },
+  },
+  async (args) => {
+    const envError = checkEnvVars();
+    if (envError) return formatResult(envError);
+    const body = {
+      lengthDays: args.lengthDays,
+    };
+    const result = await api('POST', `/api/work-cycles/${encodeURIComponent(args.workCycleId)}/resize-sprints`, body);
     return formatResult(result);
   }
 );
@@ -181,6 +320,7 @@ server.registerTool(
       estimatedHours: z.number().optional().describe('Optional estimated hours'),
       effort: z.enum(['Low', 'Medium', 'High']).optional().describe('Optional effort level'),
       status: z.string().optional().describe('Optional status name or ID'),
+      blockerReason: z.string().optional().describe('Optional blocker reason'),
     },
   },
   async (args) => {
@@ -194,6 +334,7 @@ server.registerTool(
       estimatedHours: args.estimatedHours,
       effort: args.effort,
       status: args.status,
+      blockerReason: args.blockerReason,
     };
     const result = await api('POST', '/api/tasks', body);
     return formatResult(result);
@@ -204,17 +345,18 @@ server.registerTool(
 server.registerTool(
   'update_task',
   {
-    description: 'Update a task (any combination of fields)',
+    description: 'Update a task (any combination of fields). Set status to null to clear it. Set deadline, estimatedHours, effort to null to clear them.',
     inputSchema: {
       id: z.string().describe('The task ID (required)'),
       title: z.string().optional().describe('New title'),
       description: z.string().optional().describe('New description'),
-      deadline: z.string().optional().describe('New deadline'),
-      estimatedHours: z.number().optional().describe('New estimated hours'),
-      effort: z.enum(['Low', 'Medium', 'High']).optional().describe('New effort level'),
-      status: z.string().optional().describe('New status name or ID'),
+      deadline: z.string().nullable().optional().describe('New deadline (null to clear)'),
+      estimatedHours: z.number().nullable().optional().describe('New estimated hours (null to clear)'),
+      effort: z.enum(['Low', 'Medium', 'High']).nullable().optional().describe('New effort level (null to clear)'),
+      status: z.string().nullable().optional().describe('New status name or ID (null to clear)'),
       blockerReason: z.string().optional().describe('New blocker reason'),
       completed: z.boolean().optional().describe('Set completion status'),
+      sprintId: z.string().optional().describe('Move task to another sprint in the same work cycle'),
     },
   },
   async (args) => {
@@ -229,6 +371,7 @@ server.registerTool(
       status: args.status,
       blockerReason: args.blockerReason,
       completed: args.completed,
+      sprintId: args.sprintId,
     };
     const result = await api('PATCH', `/api/tasks/${encodeURIComponent(args.id)}`, body);
     return formatResult(result);
@@ -265,6 +408,23 @@ server.registerTool(
     const envError = checkEnvVars();
     if (envError) return formatResult(envError);
     const result = await api('PATCH', `/api/tasks/${encodeURIComponent(args.id)}`, { completed: false });
+    return formatResult(result);
+  }
+);
+
+// Tool: move_task_to_next_sprint - POST /api/tasks/:id/move-to-next-sprint
+server.registerTool(
+  'move_task_to_next_sprint',
+  {
+    description: 'Move a task to the next sprint in its work cycle and set deadline to that sprint\'s start date. Returns 400 if task is already in the last sprint of its work cycle.',
+    inputSchema: {
+      id: z.string().describe('The task ID'),
+    },
+  },
+  async (args) => {
+    const envError = checkEnvVars();
+    if (envError) return formatResult(envError);
+    const result = await api('POST', `/api/tasks/${encodeURIComponent(args.id)}/move-to-next-sprint`);
     return formatResult(result);
   }
 );

@@ -1,6 +1,6 @@
 {
   "name": "@rishishukla2k/task-tracker-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that lets AI assistants (Claude, Cursor, etc.) read and update your Task Tracker tasks through your own sync server.",
   "keywords": [
     "mcp",

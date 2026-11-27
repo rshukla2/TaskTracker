@@ -203,10 +203,11 @@ export function previewSprintEdit(
   const lastUpdated = updatedSprints[updatedSprints.length - 1];
   const firstUpdated = updatedSprints[0];
 
+  // The cycle always spans exactly its sprints: it grows or shrinks with them.
   const proposedCycleEndDate =
-    lastUpdated && lastUpdated.endDate > cycle.endDate ? lastUpdated.endDate : null;
+    lastUpdated && lastUpdated.endDate !== cycle.endDate ? lastUpdated.endDate : null;
   const proposedCycleStartDate =
-    firstUpdated && firstUpdated.startDate < cycle.startDate ? firstUpdated.startDate : null;
+    firstUpdated && firstUpdated.startDate !== cycle.startDate ? firstUpdated.startDate : null;
 
   // Count tasks whose preserved deadlines would fall outside their sprint's new bounds
   const updatedById = new Map(updatedSprints.map((s) => [s.id, s]));

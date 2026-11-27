@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { AlertCircle, ArrowLeft, Check, RotateCcw, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, ArrowLeft, Check, MoreVertical, RotateCcw, Trash2 } from 'lucide-react';
 import { ModalSheet } from '../components/ModalSheet';
 import { formatDateRange, formatDisplayDate } from '../core/dates';
 import { isTaskDeadlineOutsideSprint, isTaskOverdue } from '../core/progress';
@@ -13,6 +13,7 @@ interface TaskDetailViewProps {
   taskId: string;
   today: LocalDateString;
   onBackToSprint: () => void;
+  onMovedToSprint: (newSprintId: string) => void;
 }
 
 export function TaskDetailView({
@@ -21,6 +22,7 @@ export function TaskDetailView({
   taskId,
   today,
   onBackToSprint,
+  onMovedToSprint,
 }: TaskDetailViewProps) {
   const {
     settings,
@@ -31,6 +33,19 @@ export function TaskDetailView({
     toggleTaskCompletion,
     deleteTaskAction,
   } = useWorkspace();
+
+  // Sort sprints in the same cycle (matching SprintDetailView.tsx)
+  const cycleSprints = useMemo(
+    () =>
+      sprints
+        .filter((s) => s.workCycleId === cycleId)
+        .sort((a, b) => a.order - b.order),
+    [sprints, cycleId]
+  );
+  const sprintIdx = cycleSprints.findIndex((s) => s.id === sprintId);
+  const nextSprint = sprintIdx >= 0 && sprintIdx < cycleSprints.length - 1
+    ? cycleSprints[sprintIdx + 1]
+    : null;
 
   const cycle = workCycles.find((c) => c.id === cycleId);
   const sprint = sprints.find((s) => s.id === sprintId);
@@ -51,6 +66,10 @@ export function TaskDetailView({
   const [savedNotice, setSavedNotice] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [moveMenuOpen, setMoveMenuOpen] = useState(false);
+  const [moveConfirmOpen, setMoveConfirmOpen] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const moveMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (task) {
@@ -74,6 +93,18 @@ export function TaskDetailView({
       setStatusId(task.statusId ?? '');
     }
   }, [task?.statusId, task?.completed]);
+
+  // Close move menu on outside click
+  useEffect(() => {
+    if (!moveMenuOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (moveMenuRef.current && !moveMenuRef.current.contains(e.target as Node)) {
+        setMoveMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [moveMenuOpen]);
 
   if (!cycle || !sprint || !task) {
     return (
@@ -189,6 +220,31 @@ export function TaskDetailView({
     }
   };
 
+  const handleMoveToNextSprint = async () => {
+    if (!nextSprint) return;
+
+    // First persist any pending form edits
+    const saved = await persistFields();
+    if (!saved) {
+      setMoveConfirmOpen(false);
+      return;
+    }
+
+    setMoving(true);
+    try {
+      await updateTask({
+        ...saved,
+        sprintId: nextSprint.id,
+        deadline: nextSprint.startDate,
+      });
+      setDeadline(nextSprint.startDate);
+      setMoveConfirmOpen(false);
+      onMovedToSprint(nextSprint.id);
+    } finally {
+      setMoving(false);
+    }
+  };
+
   const bannerClass = task.completed
     ? 'bg-emerald-50/80 border-emerald-200'
     : isBlocked
@@ -217,14 +273,64 @@ export function TaskDetailView({
 
           <span className="text-sm font-semibold text-slate-900 truncate">Task Detail</span>
 
-          <button
-            type="button"
-            onClick={() => setDeleteConfirmOpen(true)}
-            aria-label="Delete task"
-            className="-mr-2 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-700 shrink-0"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <div className="relative -mr-2 shrink-0" ref={moveMenuRef}>
+            <button
+              type="button"
+              onClick={() => setMoveMenuOpen((prev) => !prev)}
+              aria-label="Task actions"
+              aria-haspopup="menu"
+              aria-expanded={moveMenuOpen}
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 shrink-0"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+
+            {moveMenuOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+              >
+                {nextSprint ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoveMenuOpen(false);
+                      setMoveConfirmOpen(true);
+                    }}
+                    className="flex min-h-[44px] w-full flex-col items-start justify-center px-4 text-left text-sm hover:bg-slate-50"
+                  >
+                    <span className="font-medium text-slate-800">Move to Next Sprint</span>
+                    <span className="text-xs text-slate-500">
+                      {nextSprint.name} · starts {formatDisplayDate(nextSprint.startDate)}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled
+                    className="flex min-h-[44px] w-full flex-col items-start justify-center px-4 text-left text-sm text-slate-400 cursor-not-allowed hover:bg-transparent"
+                  >
+                    <span className="font-medium">Move to Next Sprint</span>
+                    <span className="text-xs text-slate-400">No next sprint in this cycle</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMoveMenuOpen(false);
+                    setDeleteConfirmOpen(true);
+                  }}
+                  className="flex min-h-[44px] w-full items-center px-4 text-left text-sm font-medium text-rose-700 hover:bg-rose-50"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Task
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -480,6 +586,38 @@ export function TaskDetailView({
           </div>
         </form>
       </main>
+
+      <ModalSheet
+        open={moveConfirmOpen}
+        onClose={() => setMoveConfirmOpen(false)}
+        title="Move to Next Sprint?"
+        subtitle={task.title}
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setMoveConfirmOpen(false)}
+              className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={moving}
+              onClick={handleMoveToNextSprint}
+              className="min-h-[44px] rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {moving ? 'Moving…' : 'Move Task'}
+            </button>
+          </div>
+        }
+      >
+        <p className="text-sm text-slate-700">
+          This task will move to <span className="font-medium text-slate-900">{nextSprint?.name}</span>{' '}
+          ({formatDateRange(nextSprint?.startDate ?? '', nextSprint?.endDate ?? '')}). Its deadline
+          will be set to <span className="font-medium text-slate-900">{nextSprint ? formatDisplayDate(nextSprint.startDate, { includeYear: true }) : ''}</span>, the first day of that sprint. You can change it afterwards.
+        </p>
+      </ModalSheet>
 
       <ModalSheet
         open={deleteConfirmOpen}
